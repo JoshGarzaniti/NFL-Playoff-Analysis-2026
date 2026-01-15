@@ -1,0 +1,70 @@
+---
+title: "NFL Playoff Analysis"
+author: "Josh Garzaniti"
+date: "2026-01-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Install libraries
+```{r}
+library(ggplot2)
+library(dplyr)
+library(nflfastR)
+library(ggdark)
+```
+
+Pulling the 2025 Season PBP Data
+
+##Load in Data via NFLFastR
+```{r}
+pbp = nflfastR::load_pbp(2025)
+```
+
+Filter Data for Playoff teams
+
+```{r}
+playoff_pbp = pbp%>%
+  filter(
+    posteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA") |
+    defteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))
+```
+
+Looking at Total EPA Offense
+
+```{r}
+EPA_Playoff = playoff_pbp%>%
+  group_by(posteam)%>%
+  summarize(Total_EPA = sum(epa, na.rm = TRUE))%>%
+  filter(posteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  arrange(desc(Total_EPA))
+
+
+EPA_Playoff
+```
+
+Total EPA Defense
+
+```{r}
+Defensive_EPA_Playoff = playoff_pbp%>%
+  group_by(defteam)%>%
+  summarise(Total_DEF_EPA = sum(epa, na.rm = TRUE))%>%
+  filter(defteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  arrange(Total_DEF_EPA)
+
+Defensive_EPA_Playoff
+```
+
+
+
