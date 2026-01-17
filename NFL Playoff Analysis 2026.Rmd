@@ -12,9 +12,22 @@ knitr::opts_chunk$set(echo = TRUE)
 Install libraries
 ```{r}
 library(ggplot2)
-library(dplyr)
-library(nflfastR)
 library(ggdark)
+library(caret)
+library(tidyverse)
+library(tidyr)
+library(stringr)
+library(xgboost)
+library(randomForest)
+library(ggrepel)
+library(nflreadr)
+library(nflplotR)
+library(nflfastR)
+library(mice)
+library(lme4)
+library(here)
+library(DT)
+library(htmlwidgets)
 ```
 
 Pulling the 2025 Season PBP Data
@@ -37,6 +50,8 @@ playoff_pbp = pbp%>%
                    "CAR","GB","CHI","SEA"))
 ```
 
+##Which playoff teams are the most efficient at offense 
+
 Looking at Total EPA Offense
 
 ```{r}
@@ -52,6 +67,8 @@ EPA_Playoff = playoff_pbp%>%
 EPA_Playoff
 ```
 
+##Which playoff teams are the most efficient at defense 
+
 Total EPA Defense
 
 ```{r}
@@ -65,6 +82,214 @@ Defensive_EPA_Playoff = playoff_pbp%>%
 
 Defensive_EPA_Playoff
 ```
+
+##Which playoff teams are the most efficient at offense (per play)
+
+EPA per Play Offense
+```{r}
+epa_per_offense = playoff_pbp%>%
+  filter(posteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(posteam)%>%
+  summarise(total_offensive_plays = n(), 
+            epa_per_play_off = sum(epa, na.rm = TRUE)/total_offensive_plays)%>%
+  arrange(desc(epa_per_play_off))
+
+epa_per_offense
+```
+
+##Which playoff teams are the most efficient at defense (per play)
+
+EPA per Play Defense
+```{r}
+epa_per_defense = playoff_pbp%>%
+  filter(defteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(defteam)%>%
+  summarise(total_defensive_plays = n(), 
+            epa_per_play_def = sum(epa, na.rm = TRUE)/total_defensive_plays)%>%
+  arrange((epa_per_play_def))
+
+epa_per_defense
+```
+
+##Who are the most Efficient Passing teams in the Playoffs
+
+EPA Passing
+```{r}
+epa_passing = playoff_pbp%>%
+  filter(pass_attempt == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(posteam)%>%
+  summarise(epa_pass = sum(epa, na.rm = TRUE))%>%
+  arrange(desc(epa_pass))
+
+epa_passing
+```
+
+EPA pass per play
+```{r}
+epa_per_pass_play = playoff_pbp%>%
+  filter(pass_attempt == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(posteam)%>%
+  summarise(total_passing_attempts = n(), 
+            epa_per_play_pass = sum(epa, na.rm = TRUE)/total_passing_attempts)%>%
+  arrange(desc(epa_per_play_pass))
+
+epa_per_pass_play
+```
+
+##Who are the most Efficient Rushing teams in the Playoffs
+
+
+EPA rushing
+```{r}
+epa_rushing = playoff_pbp%>%
+  filter(rush_attempt == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(posteam)%>%
+  summarise(epa_rush = sum(epa, na.rm = TRUE))%>%
+  arrange(desc(epa_rush))
+
+epa_rushing
+```
+
+EPA rush per play
+
+```{r}
+epa_per_rush_play = playoff_pbp%>%
+  filter(rush_attempt == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(posteam)%>%
+  summarise(total_rushing_attempts = n(), 
+            epa_per_play_rush = sum(epa, na.rm = TRUE)/total_rushing_attempts)%>%
+  arrange(desc(epa_per_play_rush))
+
+epa_per_rush_play
+```
+
+##Sacks and QB Hits
+
+Who generates the most negative epa on plays with either a sack or a qb hit (closest to pressures) total
+
+```{r}
+epa_sacks_hits = playoff_pbp%>%
+  filter(qb_hit == 1, sack == 1, defteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(defteam)%>%
+  summarise(epa_sack_hit = sum(epa, na.rm = TRUE))%>%
+  arrange(epa_sack_hit)
+
+epa_sacks_hits
+```
+
+EPA generated off of just sacks
+```{r}
+epa_sacks = playoff_pbp%>%
+  filter(sack == 1, defteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(defteam)%>%
+  summarise(epa_sack = sum(epa, na.rm = TRUE))%>%
+  arrange(epa_sack)
+
+epa_sacks
+```
+
+EPA generated off of qb hits
+
+```{r}
+epa_hits = playoff_pbp%>%
+  filter(qb_hit == 1, defteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(defteam)%>%
+  summarise(epa_hit = sum(epa, na.rm = TRUE))%>%
+  arrange(epa_hit)
+
+epa_hits
+```
+
+EPA generated off of plays where there are NO sacks or hits
+
+```{r}
+epa_no_sacks_hits = playoff_pbp%>%
+  filter(sack == 0, qb_hit == 0, defteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(defteam)%>%
+  summarise(epa_none = sum(epa, na.rm = TRUE))%>%
+  arrange(epa_none)
+
+epa_no_sacks_hits
+```
+
+##Scrambles (Because Josh Allen scrambles)
+
+EPA Generated from scrambles on offense
+
+```{r}
+scramble_epa = playoff_pbp%>%
+  filter(qb_scramble == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(posteam)%>%
+  summarise(epa_scrambles = sum(epa, na.rm = TRUE))%>%
+  arrange(desc(epa_scrambles))
+
+scramble_epa
+```
+
+EPA Generated from scrambles on offense (Per Play)
+```{r}
+scramble_epa_per = playoff_pbp%>%
+  filter(qb_scramble == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(posteam)%>%
+  summarise(scrmbling_plays = n(), epa_scrambles_per = sum(epa, na.rm = TRUE))%>%
+  arrange(desc(epa_scrambles_per))
+
+scramble_epa_per
+```
+
+EPA generated on scramble plays defense
+
+```{r}
+scramble_epa_def = playoff_pbp%>%
+  filter(qb_scramble == 1, defteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(defteam)%>%
+  summarise(epa_scrambles_def = sum(epa, na.rm = TRUE))%>%
+  arrange(epa_scrambles_def)
+
+scramble_epa_def
+```
+
+EPA Generated from scrambles defense (Per Play)
+```{r}
+scramble_epa_per_def = playoff_pbp%>%
+  filter(qb_scramble == 1, defteam %in% c("DEN","BUF","JAX","LAC","NE",
+                   "HOU","PIT","Eagles","SF","LA",
+                   "CAR","GB","CHI","SEA"))%>%
+  group_by(defteam)%>%
+  summarise(scrmbling_plays = n(), epa_scrambles_per_def = sum(epa, na.rm = TRUE))%>%
+  arrange(epa_scrambles_per_def)
+
+scramble_epa_per_def
+```
+
+
+
 
 
 
