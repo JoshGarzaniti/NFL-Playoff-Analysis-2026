@@ -1,0 +1,230 @@
+---
+title: "NFL Conference Championship Analysis 2025/2026"
+author: "Josh Garzaniti"
+date: "2026-01-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Install Packages
+```{r}
+library(ggplot2)
+library(ggdark)
+library(caret)
+library(tidyverse)
+library(tidyr)
+library(stringr)
+library(xgboost)
+library(randomForest)
+library(ggrepel)
+library(nflreadr)
+library(nflplotR)
+library(nflfastR)
+library(mice)
+library(lme4)
+library(here)
+library(DT)
+library(htmlwidgets)
+```
+
+Load in 2025 Data
+```{r}
+pbp = nflfastR::load_pbp(2025)
+```
+
+Filter down to Conference teams
+```{r}
+Conference = pbp%>%
+  filter(posteam %in% c("DEN","NE",
+                  "LA","SEA")|
+           defteam %in% c("DEN","NE",
+                  "LA","SEA"))
+```
+
+
+Broncos vs Patrios
+```{r}
+Broncos_Pats = Conference%>%
+  filter(posteam %in% c("DEN","NE")|
+           defteam %in% c("DEN","NE"))
+```
+
+Broncos and Pats (respectively)
+```{r}
+Broncos = Broncos_Pats%>%
+  filter(posteam %in% c("DEN")|
+           defteam %in% c("DEN"))
+
+Pats = Broncos_Pats%>%
+  filter(posteam %in% c("NE")|
+           defteam %in% c("NE"))
+```
+
+##How much will the loss of J.K Dobbins hurt the Broncos run game?
+```{r}
+jk_effect = Broncos%>%
+  filter(posteam == "DEN")%>%
+  group_by(rusher_player_name)%>%
+  summarise(rushing_attempts = n(), rushing_epa = sum(epa, na.rm = TRUE))%>%
+  filter(!is.na(rusher_player_name), rushing_attempts > 15)%>%
+  arrange(rushing_epa)
+```
+
+Visualizing this compared to the league
+```{r}
+
+Broncos_rusher_epa = datatable(jk_effect, rownames = FALSE)%>%
+  formatStyle(
+    "rushing_epa",
+    backgroundColor = styleInterval(
+      Average_rush_league,
+      c("#4575b4", "#d73027")),
+    color = "white",
+    fontWeight = "bold")
+
+Broncos_rusher_epa
+```
+
+Visualizing this compared to the conference championship teams
+```{r}
+
+Broncos_rusher_epa_con = datatable(jk_effect, rownames = FALSE)%>%
+  formatStyle(
+    "rushing_epa",
+    backgroundColor = styleInterval(
+      average_rush_conf,
+      c("#4575b4", "#d73027")),
+    color = "white",
+    fontWeight = "bold")
+
+Broncos_rusher_epa_con
+```
+
+
+
+
+Broncos rush EPA per rushing play
+```{r}
+jk_effect_per = Broncos%>%
+  filter(posteam == "DEN")%>%
+  group_by(rusher_player_name)%>%
+  summarise(rushing_attempts = n(), rushing_epa = sum(epa, na.rm = TRUE), rushing_epa_per = rushing_epa/rushing_attempts)%>%
+  filter(!is.na(rusher_player_name), rushing_attempts > 15)%>%
+  arrange(rushing_epa_per)
+```
+
+Visualizing this:
+```{r}
+
+Broncos_rusher_epa_per = datatable(jk_effect_per, rownames = FALSE)%>%
+  formatStyle(
+    "rushing_epa_per",
+    backgroundColor = styleInterval(
+      Average_rush_per_league,
+      c("#4575b4", "#d73027")),
+    color = "white",
+    fontWeight = "bold")
+
+Broncos_rusher_epa_per
+```
+
+Visualizing this compared to the conference championship teams
+```{r}
+
+Broncos_rusher_epa_per_con = datatable(jk_effect_per, rownames = FALSE)%>%
+  formatStyle(
+    "rushing_epa_per",
+    backgroundColor = styleInterval(
+      Average_rush_per_playoff,
+      c("#4575b4", "#d73027")),
+    color = "white",
+    fontWeight = "bold")
+
+Broncos_rusher_epa_per_con
+```
+
+
+2025 Rushing EPA reference
+```{r}
+rushing_epa_ref = pbp%>%
+  filter(rush_attempt == 1)%>%
+  group_by(rusher_player_name)%>%
+  summarise(rushing_attemtpts = n(), rushing_epa = sum(epa, na.rm = TRUE))%>%
+  filter(rushing_attemtpts > 15)%>%
+  arrange(rushing_epa)
+
+playoff_ref = Conference%>%
+  filter(rush_attempt == 1, posteam %in% c("DEN","NE",
+                  "LA","SEA"))%>%
+  group_by(rusher_player_name)%>%
+  summarise(rushing_attemtpts = n(), rushing_epa = sum(epa, na.rm = TRUE))%>%
+  filter(rushing_attemtpts > 15)%>%
+  arrange(rushing_epa)
+```
+
+Average Ref
+```{r}
+Average_rush_league = mean(rushing_epa_ref$rushing_epa)
+
+Average_rush_league
+
+average_rush_conf = mean(playoff_ref$rushing_epa)
+
+average_rush_conf
+```
+
+Average Ref Per
+```{r}
+Average_rush_per_league = Average_rush_league / mean(rushing_epa_ref$rushing_attemtpts)
+
+Average_rush_per_league
+
+Average_rush_per_playoff = average_rush_conf / mean(playoff_ref$rushing_attemtpts)
+
+Average_rush_per_playoff
+```
+##Looking at Success Rates with and Without Dobbins
+
+```{r}
+Broncos_success_rb = Broncos%>%
+  filter(posteam == "DEN", rush_attempt == 1)%>%
+  group_by(rusher_player_name)%>%
+  summarise(attempts = n(), 
+            total_success = sum(success), 
+            success_rate = total_success / attempts)%>%
+  filter(attempts > 15)%>%
+  arrange(success_rate)
+```
+
+Visualizing it
+```{r}
+broncos_success_rb_plot = ggplot(
+  Broncos_success_rb,
+  aes(x = reorder(rusher_player_name, success_rate),
+      y = success_rate, 
+      fill = rusher_player_name))+
+  geom_col(show.legend = FALSE)+
+  coord_flip()+
+  dark_theme_gray()+
+  labs(
+    title = "Broncos RB Success Rate",
+    x = "Rusher",
+    y = "Success Rate")+
+  theme(panel.grid = element_blank())
+  
+
+broncos_success_rb_plot
+```
+
+
+
+
+
+
+
+
+
+

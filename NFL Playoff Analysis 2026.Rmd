@@ -43,10 +43,10 @@ Filter Data for Playoff teams
 playoff_pbp = pbp%>%
   filter(
     posteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA") |
     defteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))
 ```
 
@@ -57,11 +57,12 @@ Looking at Total EPA Offense
 ```{r}
 EPA_Playoff = playoff_pbp%>%
   group_by(posteam)%>%
-  summarize(Total_EPA = sum(epa, na.rm = TRUE))%>%
+  summarize(Total_OFF_EPA = sum(epa, na.rm = TRUE))%>%
   filter(posteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
-  arrange(desc(Total_EPA))
+  arrange(desc(Total_OFF_EPA))%>%
+  rename(Team = posteam)
 
 
 EPA_Playoff
@@ -76,11 +77,41 @@ Defensive_EPA_Playoff = playoff_pbp%>%
   group_by(defteam)%>%
   summarise(Total_DEF_EPA = sum(epa, na.rm = TRUE))%>%
   filter(defteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
-  arrange(Total_DEF_EPA)
+  arrange(Total_DEF_EPA)%>%
+  rename(Team = defteam)
 
 Defensive_EPA_Playoff
+```
+
+#Most Balanced Playoff Teams plot
+```{r}
+Off_Def_EPA = EPA_Playoff%>%
+  inner_join(Defensive_EPA_Playoff, by = "Team")
+
+OFF_DEF_EPA_plot = ggplot(Off_Def_EPA, aes(x = Total_OFF_EPA, y = Total_DEF_EPA))+
+  geom_nfl_logos(aes(team_abbr = Team), width = 0.07)+
+  scale_y_reverse()+
+  labs(
+    title = "NFL Playoff Team Success: Offense vs Defense EPA Generated",
+    subtitle = "2025/2026 Season",
+    x = "Offensive EPA ",
+    y = "Defensive EPA")+
+  dark_theme_minimal()+
+  theme(panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+
+OFF_DEF_EPA_plot
+```
+
+```{r}
+ggsave(
+  filename = "C:/Personal Projects/OFF_DEF_EPA_plot.png",
+  plot = OFF_DEF_EPA_plot,
+  width = 10, 
+  height = 7,
+  dpi = 320)
 ```
 
 ##Which playoff teams are the most efficient at offense (per play)
@@ -89,12 +120,13 @@ EPA per Play Offense
 ```{r}
 epa_per_offense = playoff_pbp%>%
   filter(posteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(posteam)%>%
   summarise(total_offensive_plays = n(), 
             epa_per_play_off = sum(epa, na.rm = TRUE)/total_offensive_plays)%>%
-  arrange(desc(epa_per_play_off))
+  arrange(desc(epa_per_play_off))%>%
+  rename(Team = posteam)
 
 epa_per_offense
 ```
@@ -105,15 +137,46 @@ EPA per Play Defense
 ```{r}
 epa_per_defense = playoff_pbp%>%
   filter(defteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(defteam)%>%
   summarise(total_defensive_plays = n(), 
             epa_per_play_def = sum(epa, na.rm = TRUE)/total_defensive_plays)%>%
-  arrange((epa_per_play_def))
+  arrange((epa_per_play_def))%>%
+  rename(Team = defteam)
 
 epa_per_defense
 ```
+
+#Most Balanced Playoff Teams  per play plot
+```{r}
+Off_Def_EPA_per = epa_per_offense%>%
+  inner_join(epa_per_defense, by = "Team")
+
+OFF_DEF_EPA_per_plot = ggplot(Off_Def_EPA_per, aes(x = epa_per_play_off, y = epa_per_play_def))+
+  geom_nfl_logos(aes(team_abbr = Team), width = 0.07)+
+  scale_y_reverse()+
+  labs(
+    title = "NFL Playoff Team Success: Offense vs Defense EPA Generated (per play)",
+    subtitle = "2025/2026 Season",
+    x = "Offensive EPA ",
+    y = "Defensive EPA")+
+  dark_theme_minimal()+
+  theme(panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+
+OFF_DEF_EPA_per_plot
+```
+
+```{r}
+ggsave(
+  filename = "C:/Personal Projects/OFF_DEF_EPA_per_plot.png",
+  plot = OFF_DEF_EPA_per_plot,
+  width = 10, 
+  height = 7,
+  dpi = 320)
+```
+
 
 ##Who are the most Efficient Passing teams in the Playoffs
 
@@ -121,11 +184,12 @@ EPA Passing
 ```{r}
 epa_passing = playoff_pbp%>%
   filter(pass_attempt == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(posteam)%>%
   summarise(epa_pass = sum(epa, na.rm = TRUE))%>%
-  arrange(desc(epa_pass))
+  arrange(desc(epa_pass))%>%
+  rename(Team = posteam)
 
 epa_passing
 ```
@@ -134,12 +198,13 @@ EPA pass per play
 ```{r}
 epa_per_pass_play = playoff_pbp%>%
   filter(pass_attempt == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(posteam)%>%
   summarise(total_passing_attempts = n(), 
             epa_per_play_pass = sum(epa, na.rm = TRUE)/total_passing_attempts)%>%
-  arrange(desc(epa_per_play_pass))
+  arrange(desc(epa_per_play_pass))%>%
+  rename(Team = posteam)
 
 epa_per_pass_play
 ```
@@ -151,11 +216,12 @@ EPA rushing
 ```{r}
 epa_rushing = playoff_pbp%>%
   filter(rush_attempt == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(posteam)%>%
   summarise(epa_rush = sum(epa, na.rm = TRUE))%>%
-  arrange(desc(epa_rush))
+  arrange(desc(epa_rush))%>%
+  rename(Team = posteam)
 
 epa_rushing
 ```
@@ -165,14 +231,73 @@ EPA rush per play
 ```{r}
 epa_per_rush_play = playoff_pbp%>%
   filter(rush_attempt == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(posteam)%>%
   summarise(total_rushing_attempts = n(), 
             epa_per_play_rush = sum(epa, na.rm = TRUE)/total_rushing_attempts)%>%
-  arrange(desc(epa_per_play_rush))
+  arrange(desc(epa_per_play_rush))%>%
+  rename(Team = posteam)
 
 epa_per_rush_play
+```
+
+
+#Most Balanced Playoff Teams  Passing and Rushing
+```{r}
+Passing_Rushing_EPA = epa_passing%>%
+  inner_join(epa_rushing, by = "Team")
+
+Passing_Rushing_EPA_plot = ggplot(Passing_Rushing_EPA, aes(x = epa_pass, y = epa_rush))+
+  geom_nfl_logos(aes(team_abbr = Team), width = 0.07)+
+  labs(
+    title = "NFL Playoff Team Passing vs Rushing total EPA Generated",
+    subtitle = "2025/2026 Season",
+    x = "Passing EPA",
+    y = "Rushing EPA")+
+  dark_theme_minimal()+
+  theme(panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+
+Passing_Rushing_EPA_plot
+```
+
+
+```{r}
+ggsave(
+  filename = "C:/Personal Projects/Passing_Rushing_EPA_plot.png",
+  plot = Passing_Rushing_EPA_plot,
+  width = 10, 
+  height = 7,
+  dpi = 320)
+```
+
+#Most Balanced Playoff Teams  Passing and Rushing (per play)
+```{r}
+Passing_Rushing_per_EPA = epa_per_pass_play%>%
+  inner_join(epa_per_rush_play, by = "Team")
+
+Passing_Rushing_EPA_per_plot = ggplot(Passing_Rushing_per_EPA, aes(x = epa_per_play_pass, y = epa_per_play_rush))+
+  geom_nfl_logos(aes(team_abbr = Team), width = 0.07)+
+  labs(
+    title = "NFL Playoff Team Passing vs Rushing EPA Generated (Per Play)",
+    subtitle = "2025/2026 Season",
+    x = "Passing EPA",
+    y = "Rushing EPA")+
+  dark_theme_minimal()+
+  theme(panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+
+Passing_Rushing_EPA_per_plot
+```
+
+```{r}
+ggsave(
+  filename = "C:/Personal Projects/Passing_Rushing_EPA_per_plot.png",
+  plot = Passing_Rushing_EPA_per_plot,
+  width = 10, 
+  height = 7,
+  dpi = 320)
 ```
 
 ##Sacks and QB Hits
@@ -182,24 +307,27 @@ Who generates the most negative epa on plays with either a sack or a qb hit (clo
 ```{r}
 epa_sacks_hits = playoff_pbp%>%
   filter(qb_hit == 1, sack == 1, defteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(defteam)%>%
   summarise(epa_sack_hit = sum(epa, na.rm = TRUE))%>%
-  arrange(epa_sack_hit)
+  arrange(epa_sack_hit)%>%
+  rename(Team = defteam)
 
 epa_sacks_hits
 ```
+
 
 EPA generated off of just sacks
 ```{r}
 epa_sacks = playoff_pbp%>%
   filter(sack == 1, defteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(defteam)%>%
   summarise(epa_sack = sum(epa, na.rm = TRUE))%>%
-  arrange(epa_sack)
+  arrange(epa_sack)%>%
+  rename(Team = defteam)
 
 epa_sacks
 ```
@@ -209,11 +337,12 @@ EPA generated off of qb hits
 ```{r}
 epa_hits = playoff_pbp%>%
   filter(qb_hit == 1, defteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(defteam)%>%
   summarise(epa_hit = sum(epa, na.rm = TRUE))%>%
-  arrange(epa_hit)
+  arrange(epa_hit)%>%
+  rename(Team = defteam)
 
 epa_hits
 ```
@@ -223,27 +352,60 @@ EPA generated off of plays where there are NO sacks or hits
 ```{r}
 epa_no_sacks_hits = playoff_pbp%>%
   filter(sack == 0, qb_hit == 0, defteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(defteam)%>%
   summarise(epa_none = sum(epa, na.rm = TRUE))%>%
-  arrange(epa_none)
+  arrange(epa_none)%>%
+  rename(Team = defteam)
 
 epa_no_sacks_hits
 ```
 
-##Scrambles (Because Josh Allen scrambles)
 
+#Playoff Teams' EPA with vs without pressure
+```{r}
+Pressure_vs_Base_EPA = epa_sacks_hits%>%
+  inner_join(epa_no_sacks_hits, by = "Team")
+
+Pressure_vs_Base_EPA_plot = ggplot(Pressure_vs_Base_EPA, aes(x = epa_sack_hit, y = epa_none))+
+  scale_y_reverse()+
+  scale_x_reverse()+
+  geom_nfl_logos(aes(team_abbr = Team), width = 0.07)+
+  labs(
+    title = "Defensive EPA Generated on Plays Where the Opposing QB is Sacked or Hit vs Not",
+    subtitle = "2025/2026 NFL Playoff Teams",
+    x = "Sacks/Hits EPA",
+    y = "None EPA")+
+  dark_theme_minimal()+
+  theme(panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+
+Pressure_vs_Base_EPA_plot
+```
+
+```{r}
+ggsave(
+  filename = "C:/Personal Projects/Pressure_vs_Base_EPA_plot.png",
+  plot = Pressure_vs_Base_EPA_plot,
+  width = 10, 
+  height = 7,
+  dpi = 320)
+```
+
+
+##Scrambles (Because Josh Allen scrambles)
 EPA Generated from scrambles on offense
 
 ```{r}
 scramble_epa = playoff_pbp%>%
   filter(qb_scramble == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(posteam)%>%
   summarise(epa_scrambles = sum(epa, na.rm = TRUE))%>%
-  arrange(desc(epa_scrambles))
+  arrange(desc(epa_scrambles))%>%
+  rename(Team = posteam)
 
 scramble_epa
 ```
@@ -252,11 +414,12 @@ EPA Generated from scrambles on offense (Per Play)
 ```{r}
 scramble_epa_per = playoff_pbp%>%
   filter(qb_scramble == 1, posteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(posteam)%>%
-  summarise(scrmbling_plays = n(), epa_scrambles_per = sum(epa, na.rm = TRUE))%>%
-  arrange(desc(epa_scrambles_per))
+  summarise(scrambling_plays = n(), epa_scrambles_per = sum(epa, na.rm = TRUE)/scrambling_plays)%>%
+  arrange(desc(epa_scrambles_per))%>%
+  rename(Team = posteam)
 
 scramble_epa_per
 ```
@@ -266,30 +429,89 @@ EPA generated on scramble plays defense
 ```{r}
 scramble_epa_def = playoff_pbp%>%
   filter(qb_scramble == 1, defteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(defteam)%>%
   summarise(epa_scrambles_def = sum(epa, na.rm = TRUE))%>%
-  arrange(epa_scrambles_def)
+  arrange(epa_scrambles_def)%>%
+  rename(Team = defteam)
 
 scramble_epa_def
 ```
+
 
 EPA Generated from scrambles defense (Per Play)
 ```{r}
 scramble_epa_per_def = playoff_pbp%>%
   filter(qb_scramble == 1, defteam %in% c("DEN","BUF","JAX","LAC","NE",
-                   "HOU","PIT","Eagles","SF","LA",
+                   "HOU","PIT","PHI","SF","LA",
                    "CAR","GB","CHI","SEA"))%>%
   group_by(defteam)%>%
   summarise(scrmbling_plays = n(), epa_scrambles_per_def = sum(epa, na.rm = TRUE))%>%
-  arrange(epa_scrambles_per_def)
+  arrange(epa_scrambles_per_def)%>%
+  rename(Team = defteam)
 
 scramble_epa_per_def
 ```
 
 
+##How Are Good Are You Scrambling vs How You Defend Scrambles
+```{r}
+Scramble_vs_Def_Scramble_EPA = scramble_epa%>%
+  inner_join(scramble_epa_def, by = "Team")
+
+Scramble_vs_Def_Scramble_EPA_plot = ggplot(Scramble_vs_Def_Scramble_EPA, aes(x = epa_scrambles, y = epa_scrambles_def))+
+  scale_y_reverse()+
+  geom_nfl_logos(aes(team_abbr = Team), width = 0.07)+
+  labs(
+    title = "How Well Teams Scramble and Defend QB's that Scramble",
+    subtitle = "2025/2026 NFL Playoff Teams",
+    x = "Scramble EPA",
+    y = "DEF Scramble EPA")+
+  dark_theme_minimal()+
+  theme(panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+
+Scramble_vs_Def_Scramble_EPA_plot
+```
+
+```{r}
+ggsave(
+  filename = "C:/Personal Projects/Scramble_vs_Def_Scramble_EPA_plot.png",
+  plot = Scramble_vs_Def_Scramble_EPA_plot,
+  width = 10, 
+  height = 7,
+  dpi = 320)
+```
 
 
+##How Are Good Are You Scrambling vs How You Defend Scrambles (Per Down basis)
+```{r}
+Scramble_vs_Def_Scramble_EPA_per = scramble_epa_per%>%
+  inner_join(scramble_epa_per_def, by = "Team")
+
+Scramble_vs_Def_Scramble_EPA_per_plot = ggplot(Scramble_vs_Def_Scramble_EPA_per, aes(x = epa_scrambles_per, y = epa_scrambles_per_def))+
+  scale_y_reverse()+
+  geom_nfl_logos(aes(team_abbr = Team), width = 0.07)+
+  labs(
+    title = "How Well Teams Scramble and Defend QB's that Scramble (Per Play)",
+    subtitle = "2025/2026 NFL Playoff Teams",
+    x = "Scramble EPA",
+    y = "DEF Scramble EPA")+
+  dark_theme_minimal()+
+  theme(panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+
+Scramble_vs_Def_Scramble_EPA_per_plot
+```
+
+```{r}
+ggsave(
+  filename = "C:/Personal Projects/Scramble_vs_Def_Scramble_EPA_per_plot.png",
+  plot = Scramble_vs_Def_Scramble_EPA_per_plot,
+  width = 10, 
+  height = 7,
+  dpi = 320)
+```
 
 
